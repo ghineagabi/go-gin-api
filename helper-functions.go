@@ -1,9 +1,15 @@
 package main
 
 import (
+	"bytes"
+	"crypto/sha512"
+	b64 "encoding/base64"
+	"encoding/hex"
+	"encoding/json"
 	"github.com/gin-gonic/gin"
-	jwtverifier "github.com/okta/okta-jwt-verifier-golang"
+	"io"
 	"net/http"
+	"net/smtp"
 	"os"
 	"strings"
 	"unicode"
@@ -27,37 +33,71 @@ func stringToStringArray(str string, field string) ([]string, error) {
 	return strings.Split(str, ","), nil
 }
 
+func SendEmail(absUsr *AbstractUser) error {
+	_from := cred.AnonymousGMailName
+	pw := cred.AnonymousGmailPass
+
+	to := []string{absUsr.Email}
+
+	_host := "smtp.gmail.com"
+	p := "587"
+	address := _host + ":" + p
+
+	subject := "Subject: This is the subject of the mail\n"
+	body := "This is the body of the mail"
+	message := []byte(subject + body)
+
+	auth := smtp.PlainAuth("", _from, pw, _host)
+
+	err = smtp.SendMail(address, auth, _from, to, message)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (g *GeneralQueryFields) SetDefault() {
 	if g.Limit == 0 {
 		g.Limit = 2000
 	}
 }
 
-var toValidate = map[string]string{
-	"aud": "api://default",
-	"cid": os.Getenv("OKTA_CLIENT_ID"),
+func SHA512(text string) string {
+	h := sha512.New512_256()
+	h.Write([]byte(text))
+	return hex.EncodeToString(h.Sum(nil))
 }
 
-func verify(ctx *gin.Context) bool {
-	status := true
-	token := ctx.Request.Header.Get("Authorization")
-
-	if strings.HasPrefix(token, "Bearer ") {
-		token = strings.TrimPrefix(token, "Bearer ")
-		verifierSetup := jwtverifier.JwtVerifier{
-			Issuer:           "https://" + os.Getenv("OKTA_DOMAIN") + "/oauth2/default",
-			ClaimsToValidate: toValidate,
-		}
-		verifier := verifierSetup.New()
-		_, err = verifier.VerifyAccessToken(token)
+func decodeAuth(auth string) (UserCredentials, error) {
+	if strings.HasPrefix(auth, "Basic ") {
+		sDec, err := b64.StdEncoding.DecodeString(auth[6:])
 		if err != nil {
-			ctx.String(http.StatusForbidden, err.Error())
-			print(err.Error())
-			status = false
+			return UserCredentials{}, err
 		}
-	} else {
-		ctx.String(http.StatusUnauthorized, "Unauthorized")
-		status = false
+		name, pass, found := bytes.Cut(sDec, []byte{58})
+		if found {
+			return UserCredentials{string(name), string(pass)}, nil
+		}
 	}
-	return status
+	return UserCredentials{}, &InvalidFieldsError{"Authorization", "Can only process Basic Authentication"}
+}
+
+func setCookieByHTTPCookie(ctx *gin.Context, ck *http.Cookie) {
+	ctx.SetCookie(ck.Name, ck.Value, ck.MaxAge, ck.Path, ck.Domain, ck.Secure, ck.HttpOnly)
+}
+
+func PopulateConfig(path string) {
+	jsonFile, err := os.Open(path)
+	if err != nil {
+		panic(err)
+	}
+	byteValue, err := io.ReadAll(jsonFile)
+	if err != nil {
+		panic(err)
+	}
+
+	err = json.Unmarshal(byteValue, &cred)
+	if err != nil {
+		panic(err)
+	}
 }

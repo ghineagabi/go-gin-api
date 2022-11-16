@@ -8,6 +8,7 @@ func addAPIRoutes(r *gin.RouterGroup) {
 
 	r.POST("/post", insertPostHandler)
 	r.GET("/post", getPostsHandler)
-
 	r.PATCH("/post", updatePostHandler)
+
+	r.POST("/login", loginUserHandler)
 }

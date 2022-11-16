@@ -9,19 +9,16 @@ import (
 
 var db *sql.DB
 var err error
+var cred FileCredentials
 
-const (
-	host     = "localhost"
-	port     = 8184
-	user     = "postgres"
-	password = "root"
-	dbname   = "godb"
-)
+func init() {
+	PopulateConfig("credentials.json")
+}
 
 func main() {
 	psqlInfo := fmt.Sprintf("host=%s port=%d user=%s "+
 		"password=%s dbname=%s sslmode=disable",
-		host, port, user, password, dbname)
+		cred.Host, cred.Port, cred.User, cred.Password, cred.Dbname)
 	db, err = sql.Open("postgres", psqlInfo)
 	if err != nil {
 		panic(err)

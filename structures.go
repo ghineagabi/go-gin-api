@@ -34,3 +34,26 @@ type ToUpdatePost struct {
 	Title   string `json:"title" binding:"spacetrim"`
 	Content string `json:"content"`
 }
+
+type AbstractUserSession struct {
+	Id string
+}
+
+type UserLoginFromHeader struct {
+	Auth string `header:"Authorization" binding:"required"`
+}
+
+type UserCredentials struct {
+	Email string
+	Pass  string
+}
+
+type FileCredentials struct {
+	Host               string `json:"host" binding:"required"`
+	Port               int    `json:"port" binding:"required"`
+	User               string `json:"user" binding:"required"`
+	Password           string `json:"password" binding:"required"`
+	Dbname             string `json:"dbname" binding:"required"`
+	AnonymousGMailName string `json:"anonymousGMailName" binding:"required"`
+	AnonymousGmailPass string `json:"anonymousGMailPass" binding:"required"`
+}

@@ -60,7 +60,7 @@ func findUsersByID(firstNames []string) ([]string, error) {
 		if err = rows.Scan(&u); err != nil {
 			return users, err
 		}
-		users = append(users, user)
+		users = append(users, u)
 	}
 	if err = rows.Err(); err != nil {
 		return users, err
@@ -129,6 +129,28 @@ func updatePost(post *ToUpdatePost) error {
 					 SET "dateUpdated"=$1, title=$2, content=$3
 					WHERE posts.id = $4`
 	_, err = db.Exec(sqlStatement, pq.FormatTimestamp(time.Now()), post.Title, post.Content, post.Id)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func createSession(s *AbstractUserSession, uc *UserCredentials) error {
+	sqlStatement := `INSERT INTO public."sessions" ("id", "start", "end", "email") VALUES ($1, $2, $3, $4);`
+	_id := SHA512(uc.Email + time.Now().String())
+	_, err = db.Exec(sqlStatement, _id, pq.FormatTimestamp(time.Now()), pq.FormatTimestamp(time.Now().Add(time.Hour*24)), uc.Email)
+	if err != nil {
+		return err
+	}
+	s.Id = _id
+	return nil
+}
+
+func checkCredentials(u *UserCredentials) error {
+	sqlStatement := `SELECT email, password FROM public."abstract-users" WHERE "abstract-users".email = $1 AND 
+                                                         "abstract-users".password = $2`
+	var uc UserCredentials
+	err = db.QueryRow(sqlStatement, u.Email, u.Pass).Scan(&uc.Email, &uc.Pass)
 	if err != nil {
 		return err
 	}
