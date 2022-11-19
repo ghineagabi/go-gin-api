@@ -6,34 +6,31 @@ import (
 	b64 "encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"github.com/gin-gonic/gin"
 	"io"
+	"math/rand"
 	"net/http"
 	"net/smtp"
 	"os"
 	"strings"
+	"time"
 	"unicode"
 )
 
-func onlyUnicodeWithoutSpaces(s string) bool {
+func onlyUnicode(s string) bool {
+	if s = strings.TrimSpace(s); s == "" {
+		return false
+	}
 	for _, c := range s {
-		if c > unicode.MaxASCII || c == 32 {
+		if c > unicode.MaxASCII {
 			return false
 		}
 	}
 	return true
 }
 
-func stringToStringArray(str string, field string) ([]string, error) {
-	if len(str) == 0 {
-		x := make([]string, 0)
-		return x, &InvalidFieldsError{affectedField: field}
-	}
-	str = strings.ReplaceAll(str, " ", "")
-	return strings.Split(str, ","), nil
-}
-
-func SendEmail(absUsr *AbstractUser) error {
+func SendEmail(absUsr *AbstractUser) (string, error) {
 	_from := cred.AnonymousGMailName
 	pw := cred.AnonymousGmailPass
 
@@ -42,18 +39,20 @@ func SendEmail(absUsr *AbstractUser) error {
 	_host := "smtp.gmail.com"
 	p := "587"
 	address := _host + ":" + p
+	verCode := randomString(VERIFICATION_CODE_LENGTH)
+	subject := "Subject: This is the subject of the mail\r\n" + "\r\n"
+	body := "Hello. We see you are trying to create an account. In order to continue, you need to validate your" +
+		" email address. Please use this verification code to continue: " + verCode + "\r\n"
 
-	subject := "Subject: This is the subject of the mail\n"
-	body := "This is the body of the mail"
 	message := []byte(subject + body)
 
 	auth := smtp.PlainAuth("", _from, pw, _host)
 
 	err = smtp.SendMail(address, auth, _from, to, message)
 	if err != nil {
-		return err
+		return "", err
 	}
-	return nil
+	return verCode, nil
 }
 
 func (g *GeneralQueryFields) SetDefault() {
@@ -79,7 +78,7 @@ func decodeAuth(auth string) (UserCredentials, error) {
 			return UserCredentials{string(name), string(pass)}, nil
 		}
 	}
-	return UserCredentials{}, &InvalidFieldsError{"Authorization", "Can only process Basic Authentication"}
+	return UserCredentials{}, &InvalidFieldsError{"Authorization", "Can only process Basic Authentication", "Basic auth"}
 }
 
 func setCookieByHTTPCookie(ctx *gin.Context, ck *http.Cookie) {
@@ -100,4 +99,46 @@ func PopulateConfig(path string) {
 	if err != nil {
 		panic(err)
 	}
+}
+
+func randomString(length int) string {
+	rand.Seed(time.Now().UnixNano())
+	b := make([]byte, length)
+	rand.Read(b)
+	return fmt.Sprintf("%x", b)[:length]
+}
+
+func (ver *VerificationTTL) expired() bool {
+	if ver.TTL.Unix() > time.Now().Unix() {
+		return true
+	}
+	return false
+
+}
+
+func verifyWithCookie(ctx *gin.Context) (int, error) {
+	cookieVal, err := ctx.Cookie(SESSION_COOKIE_NAME)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, err.Error())
+		return -1, err
+	}
+
+	mutex.Lock()
+	CLS, ok := sessionToEmailID[cookieVal]
+	mutex.Unlock()
+
+	if !ok {
+		err = &InvalidFieldsError{affectedField: "Cookie", reason: "Expired Session", location: "Headers"}
+		ctx.JSON(http.StatusUnauthorized, err.Error())
+		return -1, err
+	}
+
+	return CLS.EmailID, nil
+}
+
+func setLimitFields(ctx *gin.Context) GeneralQueryFields {
+	var g GeneralQueryFields
+	_ = ctx.ShouldBind(&g)
+	g.SetDefault()
+	return g
 }

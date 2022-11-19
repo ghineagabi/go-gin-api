@@ -1,9 +1,13 @@
 package main
 
+import (
+	"time"
+)
+
 type AbstractUser struct {
 	Age          uint16 `json:"age"`
-	FirstName    string `json:"first-name"`
-	LastName     string `json:"last-name"`
+	FirstName    string `json:"firstName"`
+	LastName     string `json:"lastName"`
 	isSuperUser  bool
 	isNormalUser bool
 	isActive     bool
@@ -11,32 +15,26 @@ type AbstractUser struct {
 	Email        string `json:"email" binding:"required,email"`
 }
 
-type Post struct {
-	Email     string `json:"email"`
-	Title     string `json:"title" binding:"spacetrim"`
-	GroupName string `json:"group-name"`
-	Content   string `json:"content"`
-}
-
 type GeneralQueryFields struct {
 	Limit  int `form:"limit"`
 	Offset int `form:"offset"`
 }
 
-type PostInfo struct {
-	FirstName string `json:"first-name"`
-	LastName  string `json:"last-name"`
-	Content   string `json:"content"`
+type PostToCreate struct {
+	Title   string `json:"title" binding:"required,spacetrim"`
+	Content string `json:"content" binding:"required,spacetrim"`
 }
 
-type ToUpdatePost struct {
+type PostToGet struct {
+	Title    string `json:"title"`
+	FullName string `json:"fullName"`
+	Content  string `json:"content"`
+}
+
+type PostToUpdate struct {
 	Id      int    `json:"id" binding:"required"`
 	Title   string `json:"title" binding:"spacetrim"`
 	Content string `json:"content"`
-}
-
-type AbstractUserSession struct {
-	Id string
 }
 
 type UserLoginFromHeader struct {
@@ -56,4 +54,22 @@ type FileCredentials struct {
 	Dbname             string `json:"dbname" binding:"required"`
 	AnonymousGMailName string `json:"anonymousGMailName" binding:"required"`
 	AnonymousGmailPass string `json:"anonymousGMailPass" binding:"required"`
+}
+
+type VerificationTTL struct {
+	AbsUsr AbstractUser
+	TTL    time.Time
+}
+
+type CachedLoginSessions struct {
+	EmailID int
+	SessTTL time.Time
+}
+
+type GeneralID struct {
+	ID int `uri:"ID" binding:"required"`
+}
+
+type GeneralString struct {
+	Value string `uri:"ID" binding:"required"`
 }

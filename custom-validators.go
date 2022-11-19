@@ -10,7 +10,7 @@ var nonEmpty validator.Func = func(fl validator.FieldLevel) bool {
 	if !ok {
 		return false
 	} else {
-		return onlyUnicodeWithoutSpaces(v)
+		return onlyUnicode(v)
 	}
 }
 

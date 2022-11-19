@@ -3,125 +3,305 @@ package main
 import (
 	"github.com/gin-gonic/gin"
 	"net/http"
+	"strings"
+	"time"
 )
 
-func GetUsersById(ctx *gin.Context) {
-	ids := ctx.Query("ids")
-	arrayIDs, err := stringToStringArray(ids, "ids")
-	if err != nil || ids == "" {
-	}
-	users, err := findUsersByID(arrayIDs)
-	if err != nil {
-		ctx.JSON(http.StatusBadRequest, err.Error())
-	}
-	ctx.JSON(http.StatusOK, users)
-
-}
-
+/*
+From REQUEST BODY gets the user credentials (email and pass are mandatory). Checks if email exists.
+Sends a mail with the verification code. Generates a 10-min code available for mail confirmation
+*/
 func insertAbstractUserHandler(ctx *gin.Context) {
 	var absUsr AbstractUser
-	err = ctx.BindJSON(&absUsr)
+
+	if err = ctx.BindJSON(&absUsr); err != nil {
+		ctx.JSON(http.StatusBadRequest, err.Error())
+		return
+	}
+
+	if err = emailExists(absUsr.Email); err != nil {
+		ctx.JSON(http.StatusConflict, err.Error())
+		return
+	}
+
+	verCode, err := SendEmail(&absUsr)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
-	err = SendEmail(&absUsr)
-	if err != nil {
-		ctx.JSON(http.StatusBadRequest, err.Error())
-		return
-	}
-	err = insertAbstractUser(&absUsr)
-	if err != nil {
-		ctx.JSON(http.StatusBadRequest, err.Error())
-		return
-	}
-	ctx.JSON(http.StatusAccepted, "Successful")
+
+	ttl := VerificationTTL{absUsr, time.Now().Add(time.Second * VERIFICATION_TTL_N_SECONDS)}
+	mutex.Lock()
+	codeToTTL[verCode] = ttl
+	mutex.Unlock()
+
+	ctx.JSON(http.StatusAccepted, "EmailID sent")
 
 }
 
-func insertPostHandler(ctx *gin.Context) {
-	var post Post
-	err = ctx.BindJSON(&post)
-	if err != nil {
+func verifyEmail(ctx *gin.Context) {
+
+	var absUsr AbstractUser
+	if err = ctx.BindJSON(&absUsr); err != nil {
 		ctx.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
 
-	err = insertPost(&post)
-	if err != nil {
-		ctx.JSON(http.StatusBadRequest, err.Error())
+	verCode := ctx.Query("token")
+	mutex.Lock()
+	val, ok := codeToTTL[verCode]
+	mutex.Unlock()
+
+	if !ok {
+		ctx.JSON(http.StatusUnauthorized, (&InvalidFieldsError{affectedField: "token", reason: "Invalid verification code", location: "query params"}).Error())
+		return
+	} else if val.AbsUsr.Email == absUsr.Email {
+
+		if err = insertAbstractUser(&absUsr); err != nil {
+			ctx.JSON(http.StatusBadRequest, err.Error())
+			return
+		}
+	} else if val.expired() {
+		ctx.JSON(http.StatusGone, (&InvalidFieldsError{affectedField: "token", reason: "Expired", location: "query params"}).Error())
+		return
+	} else {
+		ctx.JSON(http.StatusUnauthorized, (&InvalidFieldsError{affectedField: "token", reason: "Could not match " +
+			"verification code with the provided email", location: "query params"}).Error())
+		return
 	}
-	ctx.JSON(http.StatusAccepted, "Successful")
+	ctx.JSON(http.StatusAccepted, SUCCESSFUL)
+}
+
+// POST, "/post"
+func insertPostHandler(ctx *gin.Context) {
+	var post PostToCreate
+
+	emailID, err := verifyWithCookie(ctx)
+	if err != nil {
+		return
+	}
+	if err = ctx.BindJSON(&post); err != nil {
+		ctx.JSON(http.StatusBadRequest, err.Error())
+		return
+	}
+
+	if err = insertPost(&post, &emailID); err != nil {
+		ctx.JSON(http.StatusBadRequest, err.Error())
+		return
+	}
+	ctx.JSON(http.StatusAccepted, SUCCESSFUL)
 
 }
 
 func getPostsHandler(ctx *gin.Context) {
-	var g GeneralQueryFields
-	var users []PostInfo
+	var users []PostToGet
 	title := ctx.Query("title")
-	_ = ctx.ShouldBind(&g)
-	g.SetDefault()
-	err = findNameByPostTitle(&users, title)
-	if err != nil {
+	title = strings.ToLower(title)
+
+	if err = findPostByPostTitle(&users, &title); err != nil {
 		ctx.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
 	ctx.JSON(http.StatusOK, users)
 }
 
+func getPostTitlesHandler(ctx *gin.Context) {
+	g := setLimitFields(ctx)
+	var titles []string
+	title := ctx.Query("title")
+	title = strings.ToLower(title)
+
+	if err = findPostTitles(&titles, &title, g.Limit); err != nil {
+		ctx.JSON(http.StatusBadRequest, err.Error())
+		return
+	}
+	ctx.JSON(http.StatusOK, titles)
+}
+
+// PATCH, "/post"
 func updatePostHandler(ctx *gin.Context) {
-	var u ToUpdatePost
-	err = ctx.ShouldBind(&u)
+	var post PostToUpdate
+	email, err := verifyWithCookie(ctx)
 	if err != nil {
+		return
+	}
+
+	if err = ctx.ShouldBind(&post); err != nil {
 		ctx.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
-	err = updatePost(&u)
-	if err != nil {
+	if err = updatePost(&post, &email); err != nil {
 		ctx.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
-	ctx.JSON(http.StatusOK, "Successful")
+	ctx.JSON(http.StatusOK, SUCCESSFUL)
 }
 
 func updateAbstractUserHandler(ctx *gin.Context) {
 	var u AbstractUser
-	err = ctx.ShouldBind(&u)
+	emailID, err := verifyWithCookie(ctx)
 	if err != nil {
+		return
+	}
+	if err = ctx.ShouldBind(&u); err != nil {
+		ctx.JSON(http.StatusBadRequest, err.Error())
+		return
+	}
+	uc := UserCredentials{Email: u.Email, Pass: u.Password}
+	if err = checkCredentials(&uc); err != nil {
+		ctx.JSON(http.StatusUnauthorized, err.Error())
+		return
+	}
+
+	if err = updateAbstractUser(&u, &emailID); err != nil {
 		ctx.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
 
-	if err != nil {
-		ctx.JSON(http.StatusBadRequest, err.Error())
-		return
-	}
-	ctx.JSON(http.StatusOK, "Successful")
+	ctx.JSON(http.StatusOK, SUCCESSFUL)
 }
 
 func loginUserHandler(ctx *gin.Context) {
-	var s AbstractUserSession
 	var u UserLoginFromHeader
 	if err = ctx.BindHeader(&u); err != nil {
 		ctx.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
+
 	uc, err := decodeAuth(u.Auth)
-	if err != nil {
-		ctx.JSON(http.StatusForbidden, err.Error())
-		return
-	}
-	err = checkCredentials(&uc)
 	if err != nil {
 		ctx.JSON(http.StatusUnauthorized, err.Error())
 		return
 	}
-	err = createSession(&s, &uc)
-	if err != nil {
+
+	if err = checkCredentials(&uc); err != nil {
+		ctx.JSON(http.StatusUnauthorized, err.Error())
+		return
+	}
+	var emailID int
+	if err = getEmailIDByEmail(&uc.Email, &emailID); err != nil {
 		ctx.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
-	c := http.Cookie{Name: "sess-id", Value: s.Id, MaxAge: 60 * 60 * 24}
+
+	sessID := randomString(SESSION_ID_LENGTH)
+	mutex.Lock()
+	for {
+		if _, ok := sessionToEmailID[sessID]; !ok {
+			sessionToEmailID[sessID] = CachedLoginSessions{EmailID: emailID, SessTTL: time.Now().Add(SESSION_TTL_N_SECONDS)}
+			break
+		}
+		sessID = randomString(SESSION_ID_LENGTH)
+	}
+	mutex.Unlock()
+
+	if err = createSession(&emailID, &sessID); err != nil {
+		ctx.JSON(http.StatusBadRequest, err.Error())
+		return
+	}
+
+	c := http.Cookie{Name: SESSION_COOKIE_NAME, Value: sessID, MaxAge: SESSION_TTL_N_SECONDS}
 	setCookieByHTTPCookie(ctx, &c)
-	ctx.JSON(http.StatusOK, "Successful login and session creation")
+
+	ctx.JSON(http.StatusOK, SUCCESSFUL)
 }
+
+// Only used for testing purposes (Generates a random token without sending email)
+func insertRandomTokenHandler(ctx *gin.Context) {
+	var absUsr AbstractUser
+
+	if err = ctx.ShouldBind(&absUsr); err != nil {
+		ctx.JSON(http.StatusBadRequest, err.Error())
+		return
+	}
+
+	verCode := randomString(VERIFICATION_CODE_LENGTH)
+	ttl := VerificationTTL{absUsr, time.Now().Add(VERIFICATION_TTL_N_SECONDS * time.Second)}
+
+	mutex.Lock()
+	codeToTTL[verCode] = ttl
+	mutex.Unlock()
+
+	ctx.JSON(http.StatusAccepted, verCode)
+
+}
+
+// deletes the user from DB if credentials are matched
+func deleteUserHandler(ctx *gin.Context) {
+	var absUsr AbstractUser
+	if err = ctx.ShouldBind(&absUsr); err != nil {
+		ctx.JSON(http.StatusBadRequest, err.Error())
+		return
+	}
+
+	var uc = UserCredentials{absUsr.Email, absUsr.Password}
+	if err = checkCredentials(&uc); err != nil {
+		ctx.JSON(http.StatusForbidden, err.Error())
+		return
+	}
+
+	if err = deleteUser(uc.Email); err != nil {
+		ctx.JSON(http.StatusBadRequest, err.Error())
+		return
+	}
+
+	ctx.JSON(http.StatusAccepted, SUCCESSFUL)
+}
+
+func deletePostHandler(ctx *gin.Context) {
+	var post PostToUpdate
+
+	emailID, err := verifyWithCookie(ctx)
+	if err != nil {
+		return
+	}
+
+	if err = ctx.ShouldBind(&post); err != nil {
+		ctx.JSON(http.StatusBadRequest, err.Error())
+		return
+	}
+
+	if status, err := deletePost(&emailID, &post.Id); err != nil {
+		ctx.JSON(status, err.Error())
+		return
+	}
+
+	ctx.JSON(http.StatusAccepted, SUCCESSFUL)
+}
+
+func likePostHandler(ctx *gin.Context) {
+	var PostID GeneralID
+
+	emailID, err := verifyWithCookie(ctx)
+	if err != nil {
+		return
+	}
+
+	if err = ctx.ShouldBindUri(&PostID); err != nil {
+		ctx.JSON(http.StatusBadRequest, err.Error())
+		return
+	}
+
+	if err = likePost(&emailID, &PostID.ID); err != nil {
+		ctx.JSON(http.StatusUnauthorized, err.Error())
+		return
+	}
+
+	ctx.JSON(http.StatusAccepted, SUCCESSFUL)
+}
+
+// This should never be publicly accessible.
+//func getEmailIDByEmailHandler(ctx *gin.Context) {
+//	var email GeneralString
+//	if err = ctx.ShouldBindUri(&email); err != nil {
+//		ctx.JSON(http.StatusBadRequest, err.Error())
+//		return
+//	}
+//
+//	var emailID int
+//	if err = getEmailIDByEmail(&email.Value, &emailID); err != nil {
+//		ctx.JSON(http.StatusBadRequest, err.Error())
+//		return
+//	}
+//	ctx.JSON(http.StatusOK, emailID)
+//}
