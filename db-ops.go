@@ -25,7 +25,7 @@ WHERE email = $1;`
 	return nil
 }
 
-func updateAbstractUser(u *AbstractUser, emailID *int) error {
+func updateAbstractUser(u *AbstractUserToUpdate, emailID *int) error {
 	var query strings.Builder
 	params := make([]interface{}, 0)
 	params = append(params, emailID)
@@ -48,7 +48,7 @@ func updateAbstractUser(u *AbstractUser, emailID *int) error {
 		return &InvalidFieldsError{location: "Body", affectedField: "firstName/lastName/age",
 			reason: "Could not map any of the provided fields"}
 	}
-	queryString := fmt.Sprintf("%s WHERE email_id=$1", strings.TrimSuffix(query.String(), ","))
+	queryString := fmt.Sprintf("%s WHERE id=$1", strings.TrimSuffix(query.String(), ","))
 
 	_, err = db.Exec(queryString, params...)
 	if err != nil {
@@ -175,8 +175,10 @@ func updatePost(post *PostToUpdate, emailID *int) error {
 }
 
 func createSession(emailID *int, sessID *string) error {
-	sqlStatement := `INSERT INTO public.sessions (id, "end", email_id) VALUES ($1, $2, $3);`
-	_, err = db.Exec(sqlStatement, *sessID, pq.FormatTimestamp(time.Now().Add(time.Hour*24)), *emailID)
+	sqlStatement := `WITH A AS (INSERT INTO public.sessions (id, "end", email_id) VALUES ($1, $2, $3))
+					 	  UPDATE public.abstract_users SET last_login = $4 WHERE id = $3`
+	_, err = db.Exec(sqlStatement, *sessID, pq.FormatTimestamp(time.Now().Add(time.Hour*24)), *emailID,
+		pq.FormatTimestamp(time.Now()))
 	if err != nil {
 		return err
 	}
@@ -260,6 +262,74 @@ func getEmailIDByEmail(email *string, emailID *int) error {
 		}
 	} else {
 		return &InvalidFieldsError{location: "uri", affectedField: "Email", reason: "No Email found"}
+	}
+	return nil
+}
+
+func insertComment(comm *CommentToCreate, emailID *int) error {
+	sqlStatement := `INSERT INTO public.comments (post_id, content, email_id, date, is_edited) 
+VALUES ($1, $2, $3, $4, $5);`
+
+	_, err = db.Exec(sqlStatement, comm.PostID, comm.Content, *emailID, pq.FormatTimestamp(time.Now()),
+		false)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func likeComment(emailID *int, commentID *int) error {
+	sqlStatement := `INSERT INTO public.comment_likes (comment_id, liked_by) VALUES ($1, $2);`
+	res, err := db.Exec(sqlStatement, *commentID, *emailID)
+	if err != nil {
+		return err
+	}
+	if r, _ := res.RowsAffected(); r == 0 {
+		return &InvalidFieldsError{location: "Body", affectedField: "id",
+			reason: "Could not perform action on the specified post ID"}
+	}
+
+	return nil
+}
+
+func updateComment(comm *CommentToCreate, emailID *int, commentID *int) error {
+	sqlStatement := `UPDATE public.comments SET content = $2, date = $4, is_edited = true 
+                       WHERE id = $5 AND post_id = $1 AND email_id = $3`
+	_, err = db.Exec(sqlStatement, comm.PostID, comm.Content, *emailID, pq.FormatTimestamp(time.Now()),
+		*commentID)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func getCommentsFromPost(postID *int, comms *[]CommentToGet) error {
+	sqlStatement :=
+		`SELECT concat_ws (' ', abstract_users.last_name, abstract_users.first_name) as full_name, 
+ 		post_id, content, date, is_edited, public.comments.id, 
+ 		(SELECT COUNT(a.liked_by) FROM comment_likes as a WHERE a.comment_id = public.comments.id) as number_of_likes
+ 	 FROM public.comments
+ 	 INNER JOIN public.abstract_users
+	 ON comments.email_id = abstract_users.id
+	 WHERE post_id = $1`
+
+	rows, err := db.Query(sqlStatement, *postID)
+	defer rows.Close()
+
+	if err != nil {
+		return err
+	}
+	var c CommentToGet
+	for rows.Next() {
+		if err = rows.Scan(&c.FullName, &c.PostID, &c.Content, &c.Date, &c.IsEdited, &c.CommentID, &c.NumberOfLikes); err != nil {
+			return err
+		}
+		*comms = append(*comms, c)
+	}
+	if err = rows.Err(); err != nil {
+		return err
 	}
 	return nil
 }

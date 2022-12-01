@@ -15,6 +15,11 @@ func addAPIRoutes(r *gin.RouterGroup) {
 	r.DELETE("/post", deletePostHandler)
 	r.POST("/post/like/:ID", likePostHandler)
 
+	r.GET("/post/:ID/comment", getCommentHandler)
+	r.POST("/post/comment", insertCommentHandler)
+	r.POST("/post/comment/like/:ID", likeCommentHandler)
+	r.PATCH("/post/comment/:ID", updateCommentHandler)
+
 	r.POST("/login", loginUserHandler)
 
 	r.POST("/verifyToken", verifyEmail)

@@ -73,7 +73,7 @@ func decodeAuth(auth string) (UserCredentials, error) {
 		if err != nil {
 			return UserCredentials{}, err
 		}
-		name, pass, found := bytes.Cut(sDec, []byte{58})
+		name, pass, found := bytes.Cut(sDec, []byte{58}) // Separate by ":"
 		if found {
 			return UserCredentials{string(name), string(pass)}, nil
 		}

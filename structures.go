@@ -15,6 +15,12 @@ type AbstractUser struct {
 	Email        string `json:"email" binding:"required,email"`
 }
 
+type AbstractUserToUpdate struct {
+	Age       uint16 `json:"age"`
+	FirstName string `json:"firstName"`
+	LastName  string `json:"lastName"`
+}
+
 type GeneralQueryFields struct {
 	Limit  int `form:"limit"`
 	Offset int `form:"offset"`
@@ -70,6 +76,17 @@ type GeneralID struct {
 	ID int `uri:"ID" binding:"required"`
 }
 
-type GeneralString struct {
-	Value string `uri:"ID" binding:"required"`
+type CommentToCreate struct {
+	PostID  int    `json:"postID" binding:"required"`
+	Content string `json:"content"`
+}
+
+type CommentToGet struct {
+	FullName      string    `json:"fullName"`
+	PostID        int       `json:"postID"`
+	Content       string    `json:"content"`
+	Date          time.Time `json:"commentDate"`
+	CommentID     int       `json:"commentID"`
+	IsEdited      bool      `json:"isEdited"`
+	NumberOfLikes int       `json:"NumberOfLikes"`
 }

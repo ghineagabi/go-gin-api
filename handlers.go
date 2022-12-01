@@ -138,18 +138,13 @@ func updatePostHandler(ctx *gin.Context) {
 }
 
 func updateAbstractUserHandler(ctx *gin.Context) {
-	var u AbstractUser
+	var u AbstractUserToUpdate
 	emailID, err := verifyWithCookie(ctx)
 	if err != nil {
 		return
 	}
 	if err = ctx.ShouldBind(&u); err != nil {
 		ctx.JSON(http.StatusBadRequest, err.Error())
-		return
-	}
-	uc := UserCredentials{Email: u.Email, Pass: u.Password}
-	if err = checkCredentials(&uc); err != nil {
-		ctx.JSON(http.StatusUnauthorized, err.Error())
 		return
 	}
 
@@ -305,3 +300,84 @@ func likePostHandler(ctx *gin.Context) {
 //	}
 //	ctx.JSON(http.StatusOK, emailID)
 //}
+
+func insertCommentHandler(ctx *gin.Context) {
+	var comm CommentToCreate
+
+	emailID, err := verifyWithCookie(ctx)
+	if err != nil {
+		return
+	}
+	if err = ctx.BindJSON(&comm); err != nil {
+		ctx.JSON(http.StatusBadRequest, err.Error())
+		return
+	}
+
+	if err = insertComment(&comm, &emailID); err != nil {
+		ctx.JSON(http.StatusBadRequest, err.Error())
+		return
+	}
+	ctx.JSON(http.StatusAccepted, SUCCESSFUL)
+
+}
+
+func likeCommentHandler(ctx *gin.Context) {
+	var commentID GeneralID
+
+	emailID, err := verifyWithCookie(ctx)
+	if err != nil {
+		return
+	}
+
+	if err = ctx.ShouldBindUri(&commentID); err != nil {
+		ctx.JSON(http.StatusBadRequest, err.Error())
+		return
+	}
+
+	if err = likeComment(&emailID, &commentID.ID); err != nil {
+		ctx.JSON(http.StatusUnauthorized, err.Error())
+		return
+	}
+
+	ctx.JSON(http.StatusAccepted, SUCCESSFUL)
+}
+
+func updateCommentHandler(ctx *gin.Context) {
+	var comm CommentToCreate
+	var commentID GeneralID
+
+	emailID, err := verifyWithCookie(ctx)
+	if err != nil {
+		return
+	}
+	if err = ctx.BindJSON(&comm); err != nil {
+		ctx.JSON(http.StatusBadRequest, err.Error())
+		return
+	}
+	if err = ctx.ShouldBindUri(&commentID); err != nil {
+		ctx.JSON(http.StatusBadRequest, err.Error())
+		return
+	}
+
+	if err = updateComment(&comm, &emailID, &commentID.ID); err != nil {
+		ctx.JSON(http.StatusBadRequest, err.Error())
+		return
+	}
+	ctx.JSON(http.StatusAccepted, SUCCESSFUL)
+
+}
+
+func getCommentHandler(ctx *gin.Context) {
+	var postID GeneralID
+	var comments []CommentToGet
+	if err = ctx.ShouldBindUri(&postID); err != nil {
+		ctx.JSON(http.StatusBadRequest, err.Error())
+		return
+	}
+
+	if err = getCommentsFromPost(&postID.ID, &comments); err != nil {
+		ctx.JSON(http.StatusBadRequest, err.Error())
+		return
+	}
+	ctx.JSON(http.StatusAccepted, comments)
+}
