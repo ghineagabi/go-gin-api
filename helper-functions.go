@@ -123,9 +123,9 @@ func verifyWithCookie(ctx *gin.Context) (int, error) {
 		return -1, err
 	}
 
-	mutex.Lock()
+	mutexSession.Lock()
 	CLS, ok := sessionToEmailID[cookieVal]
-	mutex.Unlock()
+	mutexSession.Unlock()
 
 	if !ok {
 		err = &InvalidFieldsError{affectedField: "Cookie", reason: "Expired Session", location: "Headers"}

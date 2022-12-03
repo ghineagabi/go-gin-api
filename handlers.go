@@ -3,6 +3,7 @@ package main
 import (
 	"github.com/gin-gonic/gin"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -31,9 +32,9 @@ func insertAbstractUserHandler(ctx *gin.Context) {
 	}
 
 	ttl := VerificationTTL{absUsr, time.Now().Add(time.Second * VERIFICATION_TTL_N_SECONDS)}
-	mutex.Lock()
+	mutexVerification.Lock()
 	codeToTTL[verCode] = ttl
-	mutex.Unlock()
+	mutexVerification.Unlock()
 
 	ctx.JSON(http.StatusAccepted, "EmailID sent")
 
@@ -48,9 +49,9 @@ func verifyEmail(ctx *gin.Context) {
 	}
 
 	verCode := ctx.Query("token")
-	mutex.Lock()
+	mutexVerification.Lock()
 	val, ok := codeToTTL[verCode]
-	mutex.Unlock()
+	mutexVerification.Unlock()
 
 	if !ok {
 		ctx.JSON(http.StatusUnauthorized, (&InvalidFieldsError{affectedField: "token", reason: "Invalid verification code", location: "query params"}).Error())
@@ -180,7 +181,7 @@ func loginUserHandler(ctx *gin.Context) {
 	}
 
 	sessID := randomString(SESSION_ID_LENGTH)
-	mutex.Lock()
+	mutexSession.Lock()
 	for {
 		if _, ok := sessionToEmailID[sessID]; !ok {
 			sessionToEmailID[sessID] = CachedLoginSessions{EmailID: emailID, SessTTL: time.Now().Add(SESSION_TTL_N_SECONDS)}
@@ -188,7 +189,7 @@ func loginUserHandler(ctx *gin.Context) {
 		}
 		sessID = randomString(SESSION_ID_LENGTH)
 	}
-	mutex.Unlock()
+	mutexSession.Unlock()
 
 	if err = createSession(&emailID, &sessID); err != nil {
 		ctx.JSON(http.StatusBadRequest, err.Error())
@@ -213,9 +214,9 @@ func insertRandomTokenHandler(ctx *gin.Context) {
 	verCode := randomString(VERIFICATION_CODE_LENGTH)
 	ttl := VerificationTTL{absUsr, time.Now().Add(VERIFICATION_TTL_N_SECONDS * time.Second)}
 
-	mutex.Lock()
+	mutexVerification.Lock()
 	codeToTTL[verCode] = ttl
-	mutex.Unlock()
+	mutexVerification.Unlock()
 
 	ctx.JSON(http.StatusAccepted, verCode)
 
@@ -321,6 +322,31 @@ func insertCommentHandler(ctx *gin.Context) {
 
 }
 
+func insertRespondToCommentHandler(ctx *gin.Context) {
+	var comm CommentToCreate
+	var commID GeneralID
+
+	emailID, err := verifyWithCookie(ctx)
+	if err != nil {
+		return
+	}
+	if err = ctx.BindJSON(&comm); err != nil {
+		ctx.JSON(http.StatusBadRequest, err.Error())
+		return
+	}
+	if err = ctx.ShouldBindUri(&commID); err != nil {
+		ctx.JSON(http.StatusBadRequest, err.Error())
+		return
+	}
+
+	if err = insertRespondToComment(&comm, &emailID, &commID.ID); err != nil {
+		ctx.JSON(http.StatusBadRequest, err.Error())
+		return
+	}
+	ctx.JSON(http.StatusAccepted, SUCCESSFUL)
+
+}
+
 func likeCommentHandler(ctx *gin.Context) {
 	var commentID GeneralID
 
@@ -370,12 +396,18 @@ func updateCommentHandler(ctx *gin.Context) {
 func getCommentHandler(ctx *gin.Context) {
 	var postID GeneralID
 	var comments []CommentToGet
+	id := ctx.Query("commentID")
+	commentID, err := strconv.Atoi(id)
+	if err != nil {
+		commentID = 0
+	}
+
 	if err = ctx.ShouldBindUri(&postID); err != nil {
 		ctx.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
 
-	if err = getCommentsFromPost(&postID.ID, &comments); err != nil {
+	if err = getCommentsFromPost(&postID.ID, &comments, &commentID); err != nil {
 		ctx.JSON(http.StatusBadRequest, err.Error())
 		return
 	}

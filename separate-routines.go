@@ -5,16 +5,17 @@ import (
 	"time"
 )
 
-var mutex = &sync.RWMutex{}
+var mutexSession = &sync.RWMutex{}
+var mutexVerification = &sync.RWMutex{}
 
 func emptyVerificationCodes(ttl *map[string]VerificationTTL) {
-	mutex.Lock()
+	mutexVerification.Lock()
 	for code, verCode := range *ttl {
 		if verCode.expired() {
 			delete(*ttl, code)
 		}
 	}
-	mutex.Unlock()
+	mutexVerification.Unlock()
 }
 
 func emptyVerificationCodesRoutine(seconds uint32) {

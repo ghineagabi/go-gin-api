@@ -18,6 +18,7 @@ func addAPIRoutes(r *gin.RouterGroup) {
 	r.GET("/post/:ID/comment", getCommentHandler)
 	r.POST("/post/comment", insertCommentHandler)
 	r.POST("/post/comment/like/:ID", likeCommentHandler)
+	r.POST("/post/comment/respond/:ID", insertRespondToCommentHandler)
 	r.PATCH("/post/comment/:ID", updateCommentHandler)
 
 	r.POST("/login", loginUserHandler)
