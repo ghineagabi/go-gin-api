@@ -36,5 +36,5 @@ func ClearExpiredSessions(seconds uint32) {
 func EmptyDBSessions() {
 	sqlStatement := `DELETE FROM public.sessions
 					 WHERE "end" < $1;`
-	_, Err = Db.Exec(sqlStatement, pq.FormatTimestamp(time.Now()))
+	_, _ = Db.Exec(sqlStatement, pq.FormatTimestamp(time.Now()))
 }

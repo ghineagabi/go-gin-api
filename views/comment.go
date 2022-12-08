@@ -2,6 +2,7 @@ package views
 
 import (
 	"example/web-service-gin/controllers"
+	"example/web-service-gin/errors"
 	"example/web-service-gin/models"
 	"example/web-service-gin/utils"
 	"github.com/gin-gonic/gin"
@@ -25,12 +26,12 @@ func insertCommentHandler(ctx *gin.Context) {
 		return
 	}
 	if err = ctx.BindJSON(&comm); err != nil {
-		ctx.JSON(http.StatusBadRequest, err.Error())
+		ctx.JSON(http.StatusBadRequest, errors.CommentError)
 		return
 	}
 
 	if err = controllers.InsertComment(&comm, &emailID); err != nil {
-		ctx.JSON(http.StatusBadRequest, err.Error())
+		ctx.JSON(http.StatusBadRequest, errors.InsertCommentError)
 		return
 	}
 	ctx.JSON(http.StatusAccepted, utils.SUCCESSFUL)
@@ -46,7 +47,7 @@ func insertRespondToCommentHandler(ctx *gin.Context) {
 		return
 	}
 	if err = ctx.BindJSON(&comm); err != nil {
-		ctx.JSON(http.StatusBadRequest, err.Error())
+		ctx.JSON(http.StatusBadRequest, errors.CommentError)
 		return
 	}
 	if err = ctx.ShouldBindUri(&commID); err != nil {

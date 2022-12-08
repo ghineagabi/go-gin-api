@@ -1,9 +1,8 @@
 package models
 
 type AbstractUser struct {
-	Age          uint16 `json:"age"`
-	FirstName    string `json:"firstName"`
-	LastName     string `json:"lastName"`
+	FirstName    string `json:"firstName" binding:"required"`
+	LastName     string `json:"lastName" binding:"required"`
 	isSuperUser  bool
 	isNormalUser bool
 	isActive     bool
@@ -11,8 +10,11 @@ type AbstractUser struct {
 	Email        string `json:"email" binding:"required,email"`
 }
 
+type PartnerUser struct {
+	PhoneNumber string `json:"phoneNumber" binding:"required"`
+}
+
 type AbstractUserToUpdate struct {
-	Age       uint16 `json:"age"`
 	FirstName string `json:"firstName"`
 	LastName  string `json:"lastName"`
 }
@@ -22,6 +24,10 @@ type LoginFromHeader struct {
 }
 
 type UserCredentials struct {
-	Email string
-	Pass  string
+	Pass  string `json:"password" binding:"required"`
+	Email string `json:"email" binding:"required,email"`
+}
+
+type ResetPassword struct {
+	Password string `header:"Pw" binding:"required,"`
 }

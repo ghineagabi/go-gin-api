@@ -6,6 +6,7 @@ import (
 	b64 "encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"example/web-service-gin/errors"
 	"example/web-service-gin/models"
 	"fmt"
 	"github.com/gin-gonic/gin"
@@ -89,7 +90,7 @@ func RandomString(length int) string {
 }
 
 func (ver *VerificationTTL) Expired() bool {
-	if ver.TTL.Unix() > time.Now().Unix() {
+	if ver.TTL.Unix() < time.Now().Unix() {
 		return true
 	}
 	return false
@@ -114,7 +115,7 @@ func DecodeAuth(auth string) (models.UserCredentials, error) {
 func VerifyWithCookie(ctx *gin.Context) (int, error) {
 	cookieVal, err := ctx.Cookie(SESSION_COOKIE_NAME)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, err.Error())
+		ctx.JSON(http.StatusBadRequest, errors.CookieUnfound)
 		return -1, err
 	}
 
@@ -123,35 +124,29 @@ func VerifyWithCookie(ctx *gin.Context) (int, error) {
 	MutexSession.Unlock()
 
 	if !ok {
-		err = &InvalidFieldsError{AffectedField: "Cookie", Reason: "Expired Session", Location: "Headers"}
-		ctx.JSON(http.StatusUnauthorized, err.Error())
+		ctx.JSON(http.StatusUnauthorized, errors.SessionExpired)
 		return -1, err
 	}
 
 	return CLS.EmailID, nil
 }
 
-func SendEmail(absUsr *models.AbstractUser) (string, error) {
+func SendEmail(email *string, message *string) error {
 	_from := Cred.AnonymousGMailName
 	pw := Cred.AnonymousGmailPass
 
-	to := []string{absUsr.Email}
+	to := []string{*email}
 
 	_host := "smtp.gmail.com"
 	p := "587"
 	address := _host + ":" + p
-	verCode := RandomString(VERIFICATION_CODE_LENGTH)
-	subject := "Subject: This is the subject of the mail\r\n" + "\r\n"
-	body := "Hello. We see you are trying to create an account. In order to continue, you need to validate your" +
-		" email address. Please use this verification code to continue: " + verCode + "\r\n"
 
-	message := []byte(subject + body)
+	_message := []byte(*message)
 
 	auth := smtp.PlainAuth("", _from, pw, _host)
 
-	Err = smtp.SendMail(address, auth, _from, to, message)
-	if Err != nil {
-		return "", Err
+	if err := smtp.SendMail(address, auth, _from, to, _message); err != nil {
+		return err
 	}
-	return verCode, nil
+	return nil
 }

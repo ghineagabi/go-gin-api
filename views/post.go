@@ -2,6 +2,7 @@ package views
 
 import (
 	"example/web-service-gin/controllers"
+	"example/web-service-gin/errors"
 	"example/web-service-gin/models"
 	"example/web-service-gin/utils"
 	"github.com/gin-gonic/gin"
@@ -27,7 +28,7 @@ func insertPostHandler(ctx *gin.Context) {
 		return
 	}
 	if err = ctx.BindJSON(&post); err != nil {
-		ctx.JSON(http.StatusBadRequest, err.Error())
+		ctx.JSON(http.StatusBadRequest, errors.PostCreateError)
 		return
 	}
 
@@ -43,6 +44,10 @@ func getPostsHandler(ctx *gin.Context) {
 	var users []models.PostToGet
 	title := ctx.Query("title")
 	title = strings.ToLower(title)
+	if strings.TrimSpace(title) == "" {
+		ctx.JSON(http.StatusBadRequest, errors.InvalidTitle)
+		return
+	}
 
 	if err := controllers.FindPostByPostTitle(&users, &title); err != nil {
 		ctx.JSON(http.StatusBadRequest, err.Error())
@@ -53,9 +58,14 @@ func getPostsHandler(ctx *gin.Context) {
 
 func getPostTitlesHandler(ctx *gin.Context) {
 	g := utils.SetLimitFields(ctx)
+
 	var titles []string
 	title := ctx.Query("title")
 	title = strings.ToLower(title)
+	if strings.TrimSpace(title) == "" {
+		ctx.JSON(http.StatusBadRequest, errors.InvalidTitle)
+		return
+	}
 
 	if err := controllers.FindPostTitles(&titles, &title, g.Limit); err != nil {
 		ctx.JSON(http.StatusBadRequest, err.Error())
@@ -73,7 +83,7 @@ func updatePostHandler(ctx *gin.Context) {
 	}
 
 	if err = ctx.ShouldBind(&post); err != nil {
-		ctx.JSON(http.StatusBadRequest, err.Error())
+		ctx.JSON(http.StatusBadRequest, errors.UpdatePostError)
 		return
 	}
 	if err = controllers.UpdatePost(&post, &email); err != nil {

@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"example/web-service-gin/errors"
 	"example/web-service-gin/models"
 	"example/web-service-gin/utils"
 	"fmt"
@@ -9,11 +10,11 @@ import (
 	"time"
 )
 
-func DeleteUser(email string) error {
+func DeleteUser(emailID *int) error {
 	sqlStatement := `
 DELETE FROM public.abstract_users
-WHERE email = $1;`
-	res, err := utils.Db.Exec(sqlStatement, email)
+WHERE id = $1;`
+	res, err := utils.Db.Exec(sqlStatement, *emailID)
 	if err != nil {
 		return err
 	}
@@ -39,17 +40,12 @@ func UpdateAbstractUser(u *models.AbstractUserToUpdate, emailID *int) error {
 		query.WriteString(fmt.Sprintf(" last_name=$%d,", len(params)+1))
 		params = append(params, u.LastName)
 	}
-	if u.Age != 0 {
-		query.WriteString(fmt.Sprintf(" age=$%d,", len(params)+1))
-		params = append(params, u.Age)
-	}
 	if len(params) < 2 {
-		return &utils.InvalidFieldsError{Location: "Body", AffectedField: "firstName/lastName/age",
-			Reason: "Could not map any of the provided fields"}
+		return errors.New(errors.NotEnoughParameters)
 	}
 	queryString := fmt.Sprintf("%s WHERE id=$1", strings.TrimSuffix(query.String(), ","))
 
-	_, err = utils.Db.Exec(queryString, params...)
+	_, err := utils.Db.Exec(queryString, params...)
 	if err != nil {
 		return err
 	}
@@ -57,10 +53,10 @@ func UpdateAbstractUser(u *models.AbstractUserToUpdate, emailID *int) error {
 }
 
 func InsertAbstractUser(absUsr *models.AbstractUser) error {
-	sqlStatement := `INSERT INTO public.abstract_users (age, first_name, last_name, password, email, date_joined, last_login) 
-VALUES ($1, $2, $3, $4, $5, $6, $7);`
+	sqlStatement := `INSERT INTO public.abstract_users (first_name, last_name, password, email, date_joined, last_login) 
+VALUES ($1, $2, $3, $4, $5, $6);`
 
-	_, err = utils.Db.Exec(sqlStatement, absUsr.Age, absUsr.FirstName, absUsr.LastName,
+	_, err := utils.Db.Exec(sqlStatement, absUsr.FirstName, absUsr.LastName,
 		utils.SHA512(absUsr.Password), absUsr.Email, pq.FormatTimestamp(time.Now()), pq.FormatTimestamp(time.Now()))
 	if err != nil {
 		return err
@@ -81,4 +77,34 @@ func EmailExists(email string) error {
 		return &utils.InvalidFieldsError{Location: "Body", AffectedField: "email", Reason: "duplicated email"}
 	}
 	return nil
+}
+
+func UpdatePassword(emailID *int, newPass *string) error {
+	sqlStatement := `UPDATE public.abstract_users
+	SET password = $1
+	WHERE id = $2;`
+	_, err := utils.Db.Exec(sqlStatement, utils.SHA512(*newPass), *emailID)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func GetEmailByEmailID(emailID *int, email *string) error {
+	sqlStatement := `SELECT email FROM public.abstract_users WHERE abstract_users.id = $1
+					 LIMIT 1`
+	rows, err := utils.Db.Query(sqlStatement, *emailID)
+	defer rows.Close()
+	if err != nil {
+		return err
+	}
+	for rows.Next() {
+		if err = rows.Scan(email); err != nil {
+			return err
+		}
+		return nil
+	}
+
+	return &utils.InvalidFieldsError{Location: "", AffectedField: "email", Reason: "emailID not existent"}
 }

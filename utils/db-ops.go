@@ -9,16 +9,16 @@ import (
 func CreateSession(emailID *int, sessID *string) error {
 	sqlStatement := `WITH A AS (INSERT INTO public.sessions (id, "end", email_id) VALUES ($1, $2, $3))
 					 	  UPDATE public.abstract_users SET last_login = $4 WHERE id = $3`
-	_, Err = Db.Exec(sqlStatement, *sessID, pq.FormatTimestamp(time.Now().Add(time.Hour*24)), *emailID,
+	_, err := Db.Exec(sqlStatement, *sessID, pq.FormatTimestamp(time.Now().Add(time.Hour*24)), *emailID,
 		pq.FormatTimestamp(time.Now()))
-	if Err != nil {
-		return Err
+	if err != nil {
+		return err
 	}
 	return nil
 }
 
-func CheckCredentials(u *models.UserCredentials) error {
-	sqlStatement := `SELECT email, password FROM public.abstract_users WHERE abstract_users.email = $1 AND 
+func CheckCredentials(u *models.UserCredentials, e *int) error {
+	sqlStatement := `SELECT id FROM public.abstract_users WHERE abstract_users.email = $1 AND 
                                                          					   abstract_users.password = $2 
                      LIMIT 1`
 	row, err := Db.Query(sqlStatement, u.Email, SHA512(u.Pass))
@@ -28,6 +28,10 @@ func CheckCredentials(u *models.UserCredentials) error {
 	}
 	if !row.Next() {
 		return &InvalidFieldsError{Location: "Basic auth", AffectedField: "email and password", Reason: "EmailID and/or password mismatch"}
+	}
+	err = row.Scan(e)
+	if err != nil {
+		return err
 	}
 	return nil
 }

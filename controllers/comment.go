@@ -12,7 +12,7 @@ func InsertComment(comm *models.CommentToCreate, emailID *int) error {
 	sqlStatement := `INSERT INTO public.comments (post_id, content, email_id, date, is_edited) 
 VALUES ($1, $2, $3, $4, $5);`
 
-	_, err = utils.Db.Exec(sqlStatement, comm.PostID, comm.Content, *emailID, pq.FormatTimestamp(time.Now()),
+	_, err := utils.Db.Exec(sqlStatement, comm.PostID, comm.Content, *emailID, pq.FormatTimestamp(time.Now()),
 		false)
 	if err != nil {
 		return err
@@ -25,7 +25,7 @@ func InsertRespondToComment(comm *models.CommentToCreate, emailID *int, commentI
 	sqlStatement := `INSERT INTO public.comments (post_id, content, email_id, date, is_edited, responding_to_id) 
 VALUES ($1, $2, $3, $4, $5, $6);`
 
-	_, err = utils.Db.Exec(sqlStatement, comm.PostID, comm.Content, *emailID, pq.FormatTimestamp(time.Now()),
+	_, err := utils.Db.Exec(sqlStatement, comm.PostID, comm.Content, *emailID, pq.FormatTimestamp(time.Now()),
 		false, *commentID)
 	if err != nil {
 		return err
@@ -42,7 +42,7 @@ func LikeComment(emailID *int, commentID *int) error {
 	}
 	if r, _ := res.RowsAffected(); r == 0 {
 		return &utils.InvalidFieldsError{Location: "Body", AffectedField: "id",
-			Reason: "Could not perform action on the specified post ID"}
+			Reason: "Could not perform action on the specified comment ID"}
 	}
 
 	return nil
@@ -51,7 +51,7 @@ func LikeComment(emailID *int, commentID *int) error {
 func UpdateComment(comm *models.CommentToCreate, emailID *int, commentID *int) error {
 	sqlStatement := `UPDATE public.comments SET content = $2, date = $4, is_edited = true 
                        WHERE id = $5 AND post_id = $1 AND email_id = $3`
-	_, err = utils.Db.Exec(sqlStatement, comm.PostID, comm.Content, *emailID, pq.FormatTimestamp(time.Now()),
+	_, err := utils.Db.Exec(sqlStatement, comm.PostID, comm.Content, *emailID, pq.FormatTimestamp(time.Now()),
 		*commentID)
 	if err != nil {
 		return err

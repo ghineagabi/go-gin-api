@@ -11,13 +11,11 @@ import (
 	"time"
 )
 
-var err = utils.Err
-
 func InsertPost(post *models.PostToCreate, emailID *int) error {
 	sqlStatement := `INSERT INTO public.posts (email_id, date_updated, date_created, title, content) 
 VALUES ($1, $2, $3, $4, $5);`
 
-	_, err = utils.Db.Exec(sqlStatement, emailID, pq.FormatTimestamp(time.Now()), pq.FormatTimestamp(time.Now()),
+	_, err := utils.Db.Exec(sqlStatement, emailID, pq.FormatTimestamp(time.Now()), pq.FormatTimestamp(time.Now()),
 		post.Title, post.Content)
 	if err != nil {
 		return err
@@ -34,9 +32,6 @@ INNER JOIN public.abstract_users
 ON posts.email_id = abstract_users.id
 WHERE LOWER(posts.title) LIKE '%' || $1 || '%'`
 
-	if strings.TrimSpace(*s) == "" {
-		return &utils.InvalidFieldsError{Location: "query param", AffectedField: "title", Reason: "empty field"}
-	}
 	rows, err := utils.Db.Query(sqlStatement, s)
 	defer rows.Close()
 
@@ -62,12 +57,9 @@ FROM public.posts
 INNER JOIN public.abstract_users
 ON posts.email_id = abstract_users.id
 WHERE LOWER(posts.title) LIKE '%' || $1 || '%'
-LIMIT ` + strconv.Itoa(limit)
+LIMIT $2`
 
-	if strings.TrimSpace(*s) == "" {
-		return &utils.InvalidFieldsError{Location: "query param", AffectedField: "title", Reason: "empty field"}
-	}
-	rows, err := utils.Db.Query(sqlStatement, s)
+	rows, err := utils.Db.Query(sqlStatement, s, strconv.Itoa(limit))
 	defer rows.Close()
 
 	if err != nil {
