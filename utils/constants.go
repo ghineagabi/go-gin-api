@@ -1,4 +1,4 @@
-package main
+package utils
 
 const SESSION_TTL_N_SECONDS = 3600 * 24 * 7
 const VERIFICATION_TTL_N_SECONDS = 60 * 10
