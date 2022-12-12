@@ -15,7 +15,8 @@ func (e *errorString) Error() string {
 // The type for these constants is a string. If we need to send an error to the function one level above the call stack,
 // We can call errors.New(errors.Example)
 
-const CookieUnfound = "Nu am putut identifica cookie-ul necesar. Asigura-te ca ai permis cookie-urile esentiale."
+const CookieUnfound = "Nu am putut identifica cookie-ul necesar. Asigura-te ca esti inregistrat si " +
+	"ai permis utilizarea cookie-urile esentiale."
 const SessionExpired = "Sesiunea a expirat. Te rugam sa te autentifici din nou."
 const CommentError = "Continut invalid pentru a putea crea un comentariu"
 const InsertCommentError = "Nu s-a putut finaliza crearea unui comentariu"
@@ -32,3 +33,4 @@ const TokenEmailMismatch = "Token-ul transmis corespunde unei alte adrese de ema
 const NotEnoughParameters = "Nu au fost introduci suficienti parametri pentru a finaliza cererea."
 const InvalidLoginCredentials = "Email-ul si/sau parola sunt gresite."
 const RequiredEmailPass = "Email-ul si parola sunt necesare pentru a continua"
+const InvalidEmailFormat = "Format invalid al email-ului"

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"example/web-service-gin/models"
 	"example/web-service-gin/utils"
 	"github.com/gin-gonic/gin/binding"
 	"github.com/go-playground/validator/v10"
@@ -16,21 +15,23 @@ var nonEmpty validator.Func = func(fl validator.FieldLevel) bool {
 	}
 }
 
-func addValidators() {
-	if v, ok := binding.Validator.Engine().(*validator.Validate); ok {
-		err := v.RegisterValidation("spacetrim", nonEmpty)
-		if err != nil {
-			return
-		}
-		v.RegisterStructValidation(UserStructLevelValidation, models.AbstractUser{})
+var validPass validator.Func = func(fl validator.FieldLevel) bool {
+	v, ok := fl.Field().Interface().(string)
+	if !ok {
+		return false
+	} else {
+		return utils.ValidatePassword(v)
 	}
 }
 
-func UserStructLevelValidation(sl validator.StructLevel) {
-	absUsr := sl.Current().Interface().(models.AbstractUser)
+func addValidators() {
+	if v, ok := binding.Validator.Engine().(*validator.Validate); ok {
 
-	if len(absUsr.Password) < 8 || len(absUsr.Password) > 50 {
-		sl.ReportError(absUsr.Password, "password", "password", "pass-len", "")
+		if err := v.RegisterValidation("spacetrim", nonEmpty); err != nil {
+			return
+		}
+		if err := v.RegisterValidation("pw", validPass); err != nil {
+			return
+		}
 	}
-
 }

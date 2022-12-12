@@ -21,7 +21,7 @@ func main() {
 		utils.Cred.Host, utils.Cred.Port, utils.Cred.User, utils.Cred.Password, utils.Cred.Dbname)
 	utils.Db, err = sql.Open("postgres", psqlInfo)
 	if err != nil {
-		panic(utils.Err)
+		panic(err)
 	}
 	defer func(db *sql.DB) {
 		err = db.Close()

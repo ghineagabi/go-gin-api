@@ -37,3 +37,7 @@ type VerificationTTL struct {
 type UserLoginFromHeader struct {
 	Auth string `header:"Authorization" binding:"required"`
 }
+
+type GeneralEmail struct {
+	Email string `json:"email" binding:"required,email"`
+}

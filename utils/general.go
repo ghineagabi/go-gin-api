@@ -17,7 +17,6 @@ import (
 	"os"
 	"strings"
 	"time"
-	"unicode"
 )
 
 type InvalidFieldsError struct {
@@ -42,18 +41,6 @@ func SetLimitFields(ctx *gin.Context) GeneralQueryFields {
 	_ = ctx.ShouldBind(&g)
 	g.SetDefault()
 	return g
-}
-
-func OnlyUnicode(s string) bool {
-	if s = strings.TrimSpace(s); s == "" {
-		return false
-	}
-	for _, c := range s {
-		if c > unicode.MaxASCII {
-			return false
-		}
-	}
-	return true
 }
 
 func (g *GeneralQueryFields) SetDefault() {
@@ -125,7 +112,7 @@ func VerifyWithCookie(ctx *gin.Context) (int, error) {
 
 	if !ok {
 		ctx.JSON(http.StatusUnauthorized, errors.SessionExpired)
-		return -1, err
+		return -1, errors.New("-1")
 	}
 
 	return CLS.EmailID, nil
