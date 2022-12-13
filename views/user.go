@@ -13,15 +13,17 @@ import (
 func AddUserRoutes(r *gin.RouterGroup) {
 
 	r.POST("/user", insertAbstractUserHandler)
+	r.POST("/verifyUser", verifyEmail)
 	r.DELETE("/user", deleteUserHandler)
 	r.PATCH("/user", updateAbstractUserHandler)
 
 	r.POST("/login", loginUserHandler)
+	r.POST("/logout", logoutUserHandler)
 
-	r.POST("/verifyRegistrationToken", verifyEmail)
 	r.POST("/resetPassword", resetPasswordWhenLoggedInHandler)
-	r.POST("/verifyResetPassword", VerifyResetPasswordHandler)
-	r.POST("/logout", logoutUserhandler)
+	r.POST("/verifyResetPassword", verifyResetPasswordWhenLoggedInHandler)
+	r.POST("/forgotPassword", resetPasswordWhenForgotHandler)
+	r.POST("/verifyForgotPassword", verifyResetPasswordWhenForgotHandler)
 
 }
 
@@ -45,7 +47,7 @@ func insertAbstractUserHandler(ctx *gin.Context) {
 	message := subject + body
 
 	if err := utils.SendEmail(&absUsr.Email, &message); err != nil {
-		ctx.JSON(http.StatusBadRequest, errors.MailSendingError)
+		ctx.JSON(http.StatusBadRequest, errors.EmailSendingError)
 		return
 	}
 
@@ -60,12 +62,6 @@ func insertAbstractUserHandler(ctx *gin.Context) {
 
 func verifyEmail(ctx *gin.Context) {
 
-	var absUsr models.AbstractUser
-	if err := ctx.BindJSON(&absUsr); err != nil {
-		ctx.JSON(http.StatusBadRequest, errors.InvalidUserFields)
-		return
-	}
-
 	verCode := ctx.Query("token")
 	utils.MutexVerification.Lock()
 	val, ok := utils.CodeToTTL[verCode]
@@ -77,17 +73,19 @@ func verifyEmail(ctx *gin.Context) {
 	} else if val.Expired() {
 		ctx.JSON(http.StatusGone, errors.ExpiredToken)
 		return
-	} else if val.AbsUsr.Email == absUsr.Email {
-		if err := controllers.InsertAbstractUser(&absUsr); err != nil {
-			ctx.JSON(http.StatusBadRequest, err.Error())
-			return
-		}
-		ctx.JSON(http.StatusAccepted, utils.SUCCESSFUL)
+	}
 
-	} else {
-		ctx.JSON(http.StatusUnauthorized, errors.TokenEmailMismatch)
+	if err := controllers.InsertAbstractUser(&val.AbsUsr); err != nil {
+		ctx.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
+
+	utils.MutexVerification.Lock()
+	delete(utils.CodeToTTL, verCode)
+	utils.MutexVerification.Unlock()
+
+	ctx.JSON(http.StatusAccepted, utils.SUCCESSFUL)
+	return
 
 }
 
@@ -192,7 +190,7 @@ func resetPasswordWhenLoggedInHandler(ctx *gin.Context) {
 		return
 	}
 
-	if err := utils.SendEmail(&email, &message); err != nil {
+	if err = utils.SendEmail(&email, &message); err != nil {
 		ctx.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
@@ -204,38 +202,58 @@ func resetPasswordWhenLoggedInHandler(ctx *gin.Context) {
 }
 
 func resetPasswordWhenForgotHandler(ctx *gin.Context) {
-	var email utils.GeneralEmail
-	err := ctx.BindJSON(&email)
-	if err != nil {
-		ctx.JSON(http.StatusBadRequest, errors.InvalidEmailFormat)
+	var GE utils.GeneralEmail
+	var emailID int
+
+	if err := ctx.BindJSON(&GE); err != nil {
+		if valErr := errors.TranslateValidators(err); valErr != nil {
+			ctx.JSON(http.StatusBadRequest, valErr)
+			return
+		}
+		ctx.JSON(http.StatusBadRequest, err)
 		return
 	}
+	email := &GE.Email
 
-	verCode := utils.RandomString(utils.VERIFICATION_CODE_LENGTH)
+	verCode := utils.RandomString(utils.VERIFICATION_WHEN_FORGOT_LENGTH)
 	subject := "Subject: Beautyfinder password reset\r\n" + "\r\n"
 	body := "Hello. We see you are trying to reset your password. In order to continue, you need to validate your" +
 		" email address. Please use this verification code to continue: " + verCode + "\r\n"
 	message := subject + body
 
-	if err := utils.SendEmail(&email.Email, &message); err != nil {
+	if err := utils.GetEmailIDByEmail(email, &emailID); err != nil {
+		ctx.JSON(http.StatusUnauthorized, err.Error())
+		return
+	}
+
+	if err := utils.SendEmail(email, &message); err != nil {
 		ctx.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
 
-	ttl := utils.VerificationTTL{AbsUsr: models.AbstractUser{Email: email.Email}, TTL: time.Now().Add(time.Second * utils.VERIFICATION_TTL_N_SECONDS)}
+	ttl := utils.VerificationTTL{AbsUsr: models.AbstractUser{Email: *email}, TTL: time.Now().Add(time.Second * utils.VERIFICATION_TTL_N_SECONDS)}
 	utils.MutexVerification.Lock()
 	utils.CodeToTTL[verCode] = ttl
 	utils.MutexVerification.Unlock()
 }
 
-// TODO: get the password from the header, not from the query params. Also, see if can validate on field level
-func VerifyResetPasswordHandler(ctx *gin.Context) {
+func verifyResetPasswordWhenLoggedInHandler(ctx *gin.Context) {
 	emailID, err := utils.VerifyWithCookie(ctx)
 	if err != nil {
 		return
 	}
 
-	newPass := ctx.Query("password")
+	var RP models.ResetPassword
+	if err = ctx.BindJSON(&RP); err != nil {
+		if valErr := errors.TranslateValidators(err); valErr != nil {
+			ctx.JSON(http.StatusBadRequest, valErr)
+			return
+		}
+		ctx.JSON(http.StatusBadRequest, err.Error())
+		return
+	}
+	newPass := &RP.ConfirmPassword
+
 	verCode := ctx.Query("token")
 
 	utils.MutexVerification.Lock()
@@ -243,23 +261,57 @@ func VerifyResetPasswordHandler(ctx *gin.Context) {
 	utils.MutexVerification.Unlock()
 
 	if !ok {
-		ctx.JSON(http.StatusUnauthorized, (&utils.InvalidFieldsError{AffectedField: "token",
-			Reason: "Invalid verification code", Location: "query params"}).Error())
+		ctx.JSON(http.StatusUnauthorized, errors.InvalidToken)
 		return
 	} else if val.Expired() {
-		ctx.JSON(http.StatusGone, (&utils.InvalidFieldsError{AffectedField: "token", Reason: "Expired", Location: "query params"}).Error())
+		ctx.JSON(http.StatusGone, errors.ExpiredToken)
 		return
-	} else {
-		if err = controllers.UpdatePassword(&emailID, &newPass); err != nil {
-			ctx.JSON(http.StatusBadRequest, err.Error())
-			return
-		}
-		ctx.JSON(http.StatusAccepted, utils.SUCCESSFUL)
 	}
+
+	if err = controllers.UpdatePassword(&emailID, newPass); err != nil {
+		ctx.JSON(http.StatusBadRequest, err.Error())
+		return
+	}
+	ctx.JSON(http.StatusAccepted, utils.SUCCESSFUL)
 
 }
 
-func logoutUserhandler(ctx *gin.Context) {
+func verifyResetPasswordWhenForgotHandler(ctx *gin.Context) {
+
+	var RP models.ResetPassword
+	if err := ctx.BindJSON(&RP); err != nil {
+		if valErr := errors.TranslateValidators(err); valErr != nil {
+			ctx.JSON(http.StatusBadRequest, valErr)
+			return
+		}
+		ctx.JSON(http.StatusBadRequest, err.Error())
+		return
+	}
+	newPass := &RP.ConfirmPassword
+
+	verCode := ctx.Query("token")
+
+	utils.MutexVerification.Lock()
+	val, ok := utils.CodeToTTL[verCode]
+	utils.MutexVerification.Unlock()
+
+	if !ok {
+		ctx.JSON(http.StatusUnauthorized, errors.InvalidToken)
+		return
+	} else if val.Expired() {
+		ctx.JSON(http.StatusGone, errors.ExpiredToken)
+		return
+	}
+
+	if err := controllers.UpdatePasswordByEmail(&val.AbsUsr.Email, newPass); err != nil {
+		ctx.JSON(http.StatusBadRequest, err.Error())
+		return
+	}
+	ctx.JSON(http.StatusAccepted, utils.SUCCESSFUL)
+
+}
+
+func logoutUserHandler(ctx *gin.Context) {
 	cookieVal, err := ctx.Cookie(utils.SESSION_COOKIE_NAME)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, errors.CookieUnfound)
@@ -267,11 +319,15 @@ func logoutUserhandler(ctx *gin.Context) {
 	}
 
 	if _, ok := utils.SessionToEmailID[cookieVal]; !ok {
-		ctx.JSON(http.StatusGone, errors.CookieUnfound)
+		ctx.JSON(http.StatusGone, errors.CookieValueUnfound)
 		return
 	}
 
 	delete(utils.SessionToEmailID, cookieVal)
+	if err = utils.DeleteSession(&cookieVal); err != nil {
+		ctx.JSON(http.StatusBadRequest, err)
+		return
+	}
 	ctx.JSON(http.StatusAccepted, utils.SUCCESSFUL)
 
 }

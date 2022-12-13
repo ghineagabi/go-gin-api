@@ -55,6 +55,14 @@ func main() {
 	go utils.EmptyVerificationCodesRoutine(10 * 60)
 	go utils.ClearExpiredSessions(24 * 60 * 60)
 
+	utils.MutexSession.Lock()
+	err = utils.GetSessionsAfterRestart(utils.SessionToEmailID)
+	utils.MutexSession.Unlock()
+
+	if err != nil {
+		panic(err)
+	}
+
 	err = server.RunTLS("0.0.0.0:8080", "localhost.crt", "localhost.key")
 	if err != nil {
 		return

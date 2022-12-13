@@ -1,18 +1,18 @@
 package models
 
 type PostToCreate struct {
-	Title   string `json:"title" binding:"required,spacetrim"`
-	Content string `json:"content" binding:"required,spacetrim"`
+	Title   string `json:"Title" binding:"required,spacetrim"`
+	Content string `json:"Content" binding:"required,spacetrim"`
 }
 
 type PostToGet struct {
-	Title    string `json:"title"`
-	FullName string `json:"fullName"`
-	Content  string `json:"content"`
+	Title    string `json:"Title"`
+	FullName string `json:"FullName"`
+	Content  string `json:"Content"`
 }
 
 type PostToUpdate struct {
-	Id      int    `json:"id" binding:"required"`
-	Title   string `json:"title" binding:"spacetrim"`
-	Content string `json:"content"`
+	Id      int    `json:"Id" binding:"required"`
+	Title   string `json:"Title" binding:"spacetrim"`
+	Content string `json:"Content"`
 }

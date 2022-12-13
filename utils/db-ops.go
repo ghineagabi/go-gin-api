@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"example/web-service-gin/errors"
 	"example/web-service-gin/models"
 	"github.com/lib/pq"
 	"time"
@@ -21,7 +22,7 @@ func CheckCredentials(u *models.UserCredentials, e *int) error {
 	sqlStatement := `SELECT id FROM public.abstract_users WHERE abstract_users.email = $1 AND 
                                                          					   abstract_users.password = $2 
                      LIMIT 1`
-	row, err := Db.Query(sqlStatement, u.Email, SHA512(u.Pass))
+	row, err := Db.Query(sqlStatement, u.Email, SHA512(u.Password))
 	defer row.Close()
 	if err != nil {
 		return err
@@ -49,7 +50,40 @@ func GetEmailIDByEmail(email *string, emailID *int) error {
 			return err
 		}
 	} else {
-		return &InvalidFieldsError{Location: "uri", AffectedField: "Email", Reason: "No Email found"}
+		return errors.New(errors.EmailUnfound)
+	}
+	return nil
+}
+
+func GetSessionsAfterRestart(mapper map[string]CachedLoginSessions) error {
+	sqlStatement := `SELECT id, "end", email_id FROM public.sessions`
+	rows, err := Db.Query(sqlStatement)
+	defer rows.Close()
+	if err != nil {
+		return err
+	}
+
+	var info CachedLoginSessions
+	var sessionID string
+	for rows.Next() {
+		if err = rows.Scan(&sessionID, &info.SessTTL, &info.EmailID); err != nil {
+			return err
+		}
+		mapper[sessionID] = info
+	}
+
+	return nil
+}
+
+func DeleteSession(emailID *string) error {
+	sqlStatement := `DELETE FROM public.sessions WHERE sessions.id = $1`
+	res, err := Db.Exec(sqlStatement, *emailID)
+	if err != nil {
+		return err
+	}
+	_, err = res.RowsAffected()
+	if err != nil {
+		return err
 	}
 	return nil
 }

@@ -6,8 +6,8 @@ import (
 )
 
 type GeneralQueryFields struct {
-	Limit  int `form:"limit"`
-	Offset int `form:"offset"`
+	Limit  int `form:"Limit"`
+	Offset int `form:"Offset"`
 }
 
 type FileCredentials struct {
@@ -39,5 +39,5 @@ type UserLoginFromHeader struct {
 }
 
 type GeneralEmail struct {
-	Email string `json:"email" binding:"required,email"`
+	Email string `json:"Email" binding:"required,email"`
 }

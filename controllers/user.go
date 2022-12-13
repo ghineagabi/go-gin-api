@@ -91,6 +91,18 @@ func UpdatePassword(emailID *int, newPass *string) error {
 	return nil
 }
 
+func UpdatePasswordByEmail(email *string, newPass *string) error {
+	sqlStatement := `UPDATE public.abstract_users
+	SET password = $1
+	WHERE id = $2;`
+	_, err := utils.Db.Exec(sqlStatement, utils.SHA512(*newPass), *email)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func GetEmailByEmailID(emailID *int, email *string) error {
 	sqlStatement := `SELECT email FROM public.abstract_users WHERE abstract_users.id = $1
 					 LIMIT 1`

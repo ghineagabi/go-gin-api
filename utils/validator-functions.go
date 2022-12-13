@@ -25,9 +25,12 @@ func ValidatePassword(s string) bool {
 		switch {
 		case unicode.IsNumber(c):
 			number = true
+			letters++
 		case unicode.IsUpper(c):
 			upper = true
 			letters++
+		case c > unicode.MaxASCII:
+			return false
 		case unicode.IsLetter(c) || c == ' ':
 			letters++
 		}

@@ -1,22 +1,22 @@
 package models
 
 type AbstractUser struct {
-	FirstName    string `json:"firstName" binding:"required,spacetrim"`
-	LastName     string `json:"lastName" binding:"required,spacetrim"`
+	FirstName    string `json:"FirstName" binding:"required,spacetrim"`
+	LastName     string `json:"LastName" binding:"required,spacetrim"`
 	isSuperUser  bool
 	isNormalUser bool
 	isActive     bool
-	Password     string `json:"password" binding:"required,pw"`
-	Email        string `json:"email" binding:"required,email"`
+	Password     string `json:"Password" binding:"required,pw"`
+	Email        string `json:"Email" binding:"required,email"`
 }
 
 type PartnerUser struct {
-	PhoneNumber string `json:"phoneNumber" binding:"required"`
+	PhoneNumber string `json:"PhoneNumber" binding:"required"`
 }
 
 type AbstractUserToUpdate struct {
-	FirstName string `json:"firstName"`
-	LastName  string `json:"lastName"`
+	FirstName string `json:"FirstName"`
+	LastName  string `json:"LastName"`
 }
 
 type LoginFromHeader struct {
@@ -24,10 +24,11 @@ type LoginFromHeader struct {
 }
 
 type UserCredentials struct {
-	Pass  string `json:"password" binding:"required,pw"`
-	Email string `json:"email" binding:"required,email"`
+	Password string `json:"Password" binding:"required,pw"`
+	Email    string `json:"Email" binding:"required,email"`
 }
 
 type ResetPassword struct {
-	Password string `json:"password" binding:"required,pw"`
+	Password        string `json:"Password" binding:"required,pw,eqfield=ConfirmPassword"`
+	ConfirmPassword string `json:"ConfirmPassword" binding:"required,pw"`
 }

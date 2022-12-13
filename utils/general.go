@@ -92,7 +92,7 @@ func DecodeAuth(auth string) (models.UserCredentials, error) {
 		}
 		name, pass, found := bytes.Cut(sDec, []byte{58}) // Separate by ":"
 		if found {
-			return models.UserCredentials{Email: string(name), Pass: string(pass)}, nil
+			return models.UserCredentials{Email: string(name), Password: string(pass)}, nil
 		}
 		return models.UserCredentials{}, &InvalidFieldsError{"Authorization", "Invalid format. Missing colon ", "Basic auth"}
 	}
