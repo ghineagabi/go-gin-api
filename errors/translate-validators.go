@@ -38,6 +38,8 @@ func msgForTag(fe validator.FieldError) string {
 		return Required
 	case "eqfield":
 		return IdenticalFields
+	case "nefield":
+		return DifferentFields
 	}
 
 	return fe.Error() // default error

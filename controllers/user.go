@@ -79,13 +79,17 @@ func EmailExists(email string) error {
 	return nil
 }
 
-func UpdatePassword(emailID *int, newPass *string) error {
+func UpdatePassword(emailID *int, newPass *string, oldPass *string) error {
 	sqlStatement := `UPDATE public.abstract_users
 	SET password = $1
-	WHERE id = $2;`
-	_, err := utils.Db.Exec(sqlStatement, utils.SHA512(*newPass), *emailID)
+	WHERE id = $2 AND password = $3;`
+	res, err := utils.Db.Exec(sqlStatement, utils.SHA512(*newPass), *emailID, utils.SHA512(*oldPass))
 	if err != nil {
 		return err
+	}
+
+	if r, _ := res.RowsAffected(); r == 0 {
+		return errors.New(errors.InvalidPassword)
 	}
 
 	return nil
@@ -94,7 +98,7 @@ func UpdatePassword(emailID *int, newPass *string) error {
 func UpdatePasswordByEmail(email *string, newPass *string) error {
 	sqlStatement := `UPDATE public.abstract_users
 	SET password = $1
-	WHERE id = $2;`
+	WHERE email = $2;`
 	_, err := utils.Db.Exec(sqlStatement, utils.SHA512(*newPass), *email)
 	if err != nil {
 		return err

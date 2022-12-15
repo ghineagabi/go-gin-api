@@ -28,7 +28,13 @@ type UserCredentials struct {
 	Email    string `json:"Email" binding:"required,email"`
 }
 
+type ForgotPassword struct {
+	Password        string `json:"Password" binding:"required,pw,eqfield=ConfirmPassword"`
+	ConfirmPassword string `json:"ConfirmPassword" binding:"required,pw"`
+}
+
 type ResetPassword struct {
+	OldPassword     string `json:"OldPassword" binding:"required,pw,nefield=Password"`
 	Password        string `json:"Password" binding:"required,pw,eqfield=ConfirmPassword"`
 	ConfirmPassword string `json:"ConfirmPassword" binding:"required,pw"`
 }

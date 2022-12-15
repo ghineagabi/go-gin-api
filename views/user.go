@@ -20,10 +20,9 @@ func AddUserRoutes(r *gin.RouterGroup) {
 	r.POST("/login", loginUserHandler)
 	r.POST("/logout", logoutUserHandler)
 
-	r.POST("/resetPassword", resetPasswordWhenLoggedInHandler)
-	r.POST("/verifyResetPassword", verifyResetPasswordWhenLoggedInHandler)
-	r.POST("/forgotPassword", resetPasswordWhenForgotHandler)
-	r.POST("/verifyForgotPassword", verifyResetPasswordWhenForgotHandler)
+	r.POST("/resetPassword", resetPasswordHandler)
+	r.POST("/verifyForgotPassword", verifyForgotPasswordHandler)
+	r.POST("/forgotPassword", forgotPasswordHandler)
 
 }
 
@@ -172,36 +171,31 @@ func deleteUserHandler(ctx *gin.Context) {
 	ctx.JSON(http.StatusAccepted, utils.SUCCESSFUL)
 }
 
-func resetPasswordWhenLoggedInHandler(ctx *gin.Context) {
-	var email string
+func resetPasswordHandler(ctx *gin.Context) {
 	emailID, err := utils.VerifyWithCookie(ctx)
 	if err != nil {
 		return
 	}
 
-	verCode := utils.RandomString(utils.VERIFICATION_CODE_LENGTH)
-	subject := "Subject: Beautyfinder password reset\r\n" + "\r\n"
-	body := "Hello. We see you are trying to reset your password. In order to continue, you need to validate your" +
-		" email address. Please use this verification code to continue: " + verCode + "\r\n"
-	message := subject + body
-
-	if err = controllers.GetEmailByEmailID(&emailID, &email); err != nil {
-		ctx.JSON(http.StatusForbidden, err.Error())
-		return
-	}
-
-	if err = utils.SendEmail(&email, &message); err != nil {
+	var RP models.ResetPassword
+	if err = ctx.BindJSON(&RP); err != nil {
+		if valErr := errors.TranslateValidators(err); valErr != nil {
+			ctx.JSON(http.StatusBadRequest, valErr)
+			return
+		}
 		ctx.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
 
-	ttl := utils.VerificationTTL{AbsUsr: models.AbstractUser{Email: email}, TTL: time.Now().Add(time.Second * utils.VERIFICATION_TTL_N_SECONDS)}
-	utils.MutexVerification.Lock()
-	utils.CodeToTTL[verCode] = ttl
-	utils.MutexVerification.Unlock()
+	if err = controllers.UpdatePassword(&emailID, &RP.ConfirmPassword, &RP.OldPassword); err != nil {
+		ctx.JSON(http.StatusBadRequest, err.Error())
+		return
+	}
+	ctx.JSON(http.StatusAccepted, utils.SUCCESSFUL)
+
 }
 
-func resetPasswordWhenForgotHandler(ctx *gin.Context) {
+func forgotPasswordHandler(ctx *gin.Context) {
 	var GE utils.GeneralEmail
 	var emailID int
 
@@ -237,14 +231,10 @@ func resetPasswordWhenForgotHandler(ctx *gin.Context) {
 	utils.MutexVerification.Unlock()
 }
 
-func verifyResetPasswordWhenLoggedInHandler(ctx *gin.Context) {
-	emailID, err := utils.VerifyWithCookie(ctx)
-	if err != nil {
-		return
-	}
+func verifyForgotPasswordHandler(ctx *gin.Context) {
 
-	var RP models.ResetPassword
-	if err = ctx.BindJSON(&RP); err != nil {
+	var FP models.ForgotPassword
+	if err := ctx.BindJSON(&FP); err != nil {
 		if valErr := errors.TranslateValidators(err); valErr != nil {
 			ctx.JSON(http.StatusBadRequest, valErr)
 			return
@@ -252,42 +242,7 @@ func verifyResetPasswordWhenLoggedInHandler(ctx *gin.Context) {
 		ctx.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
-	newPass := &RP.ConfirmPassword
-
-	verCode := ctx.Query("token")
-
-	utils.MutexVerification.Lock()
-	val, ok := utils.CodeToTTL[verCode]
-	utils.MutexVerification.Unlock()
-
-	if !ok {
-		ctx.JSON(http.StatusUnauthorized, errors.InvalidToken)
-		return
-	} else if val.Expired() {
-		ctx.JSON(http.StatusGone, errors.ExpiredToken)
-		return
-	}
-
-	if err = controllers.UpdatePassword(&emailID, newPass); err != nil {
-		ctx.JSON(http.StatusBadRequest, err.Error())
-		return
-	}
-	ctx.JSON(http.StatusAccepted, utils.SUCCESSFUL)
-
-}
-
-func verifyResetPasswordWhenForgotHandler(ctx *gin.Context) {
-
-	var RP models.ResetPassword
-	if err := ctx.BindJSON(&RP); err != nil {
-		if valErr := errors.TranslateValidators(err); valErr != nil {
-			ctx.JSON(http.StatusBadRequest, valErr)
-			return
-		}
-		ctx.JSON(http.StatusBadRequest, err.Error())
-		return
-	}
-	newPass := &RP.ConfirmPassword
+	newPass := &FP.ConfirmPassword
 
 	verCode := ctx.Query("token")
 

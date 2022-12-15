@@ -49,3 +49,5 @@ const Required = "Acest camp nu poate fi gol."
 const PasswordFormat = "Parola trebuie sa contina: " +
 	"intre 7 si 49 de caractere, o litera mare, o litera mica si sa aibe doar caractere valide. "
 const IdenticalFields = "Campurile trebuie sa fie identice!"
+const DifferentFields = "Campurile trebuie sa fie diferite!"
+const InvalidPassword = "Parola actuala este incorecta."
