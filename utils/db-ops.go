@@ -65,13 +65,14 @@ func GetSessionsAfterRestart(mapper map[string]CachedLoginSessions) error {
 
 	var info CachedLoginSessions
 	var sessionID string
+	MutexSession.Lock()
 	for rows.Next() {
 		if err = rows.Scan(&sessionID, &info.SessTTL, &info.EmailID); err != nil {
 			return err
 		}
 		mapper[sessionID] = info
 	}
-
+	MutexSession.Unlock()
 	return nil
 }
 

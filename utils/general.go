@@ -106,9 +106,9 @@ func VerifyWithCookie(ctx *gin.Context) (int, error) {
 		return -1, err
 	}
 
-	MutexSession.Lock()
+	MutexSession.RLock()
 	CLS, ok := SessionToEmailID[cookieVal]
-	MutexSession.Unlock()
+	MutexSession.RUnlock()
 
 	if !ok {
 		ctx.JSON(http.StatusUnauthorized, errors.SessionExpired)

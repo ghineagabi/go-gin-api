@@ -24,13 +24,14 @@ func TestValidPhoneNumber(t *testing.T) {
 
 func TestValidatePassword(t *testing.T) {
 	testsSucceed := []bool{
-		ValidatePassword("BarOsAnu1"),
-		ValidatePassword("Megabigb0ss"),
-		ValidatePassword("!airw1ckK")}
+		ValidatePassword("!BarOsAnu1"),
+		ValidatePassword("-Megabigb0ss"),
+		ValidatePassword("bAROSANU!1")}
 	testsFail := []bool{
 		ValidatePassword("BarOsAnu"),
 		ValidatePassword("megabigb0ss"),
-		ValidatePassword("hermosa")}
+		ValidatePassword("hermosa"),
+		ValidatePassword("BAROSANu1! ")}
 
 	tryTests(t, &testsSucceed, &testsFail)
 }

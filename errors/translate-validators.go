@@ -8,8 +8,8 @@ import (
 )
 
 type ApiError struct {
-	Camp  string
-	Motiv string
+	Field  string `json:"field"`
+	Reason string `json:"reason"`
 }
 
 func TranslateValidators(e error) gin.H {
@@ -21,7 +21,7 @@ func TranslateValidators(e error) gin.H {
 			firstLetterToLowerCase := strings.ToLower(string(_field[0]))
 			out[i] = ApiError{firstLetterToLowerCase + _field[1:], msgForTag(fe)}
 		}
-		return gin.H{"erori": out}
+		return gin.H{"errors": out}
 
 	} else {
 		return nil

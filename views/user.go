@@ -13,7 +13,7 @@ import (
 func AddUserRoutes(r *gin.RouterGroup) {
 
 	r.POST("/user", insertAbstractUserHandler)
-	r.POST("/verifyUser", verifyEmail)
+	r.POST("/verifyEmail", verifyEmail)
 	r.DELETE("/user", deleteUserHandler)
 	r.PATCH("/user", updateAbstractUserHandler)
 
@@ -66,9 +66,9 @@ func insertAbstractUserHandler(ctx *gin.Context) {
 func verifyEmail(ctx *gin.Context) {
 
 	verCode := ctx.Query("token")
-	utils.MutexVerification.Lock()
+	utils.MutexVerification.RLock()
 	val, ok := utils.CodeToTTL[verCode]
-	utils.MutexVerification.Unlock()
+	utils.MutexVerification.RUnlock()
 
 	if !ok {
 		ctx.JSON(http.StatusUnauthorized, errors.InvalidToken)
@@ -260,9 +260,9 @@ func verifyForgotPasswordHandler(ctx *gin.Context) {
 
 	verCode := ctx.Query("token")
 
-	utils.MutexVerification.Lock()
+	utils.MutexVerification.RLock()
 	val, ok := utils.CodeToTTL[verCode]
-	utils.MutexVerification.Unlock()
+	utils.MutexVerification.RUnlock()
 
 	if !ok {
 		ctx.JSON(http.StatusUnauthorized, errors.InvalidToken)

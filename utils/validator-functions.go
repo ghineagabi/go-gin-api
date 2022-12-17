@@ -20,23 +20,26 @@ func OnlyUnicode(s string) bool {
 
 func ValidatePassword(s string) bool {
 	letters := 0
-	var number, upper, sevenOrMore bool
+	var number, upper, sevenOrMore, lower, special bool
 	for _, c := range s {
 		switch {
+		case unicode.IsLower(c):
+			lower = true
+			letters++
 		case unicode.IsNumber(c):
 			number = true
 			letters++
 		case unicode.IsUpper(c):
 			upper = true
 			letters++
-		case c > unicode.MaxASCII:
+		case unicode.IsPunct(c) || unicode.IsSymbol(c):
+			special = true
+		case c > unicode.MaxASCII || c == ' ':
 			return false
-		case unicode.IsLetter(c) || c == ' ':
-			letters++
 		}
 	}
-	sevenOrMore = letters >= 7 && letters < 49
-	if sevenOrMore && number && upper {
+	sevenOrMore = letters >= 8 && letters < 49
+	if sevenOrMore && number && upper && lower && special {
 		return true
 	}
 	return false
