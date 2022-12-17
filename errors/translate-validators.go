@@ -4,6 +4,7 @@ import (
 	"errors"
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
+	"strings"
 )
 
 type ApiError struct {
@@ -16,7 +17,9 @@ func TranslateValidators(e error) gin.H {
 	if errors.As(e, &ve) {
 		out := make([]ApiError, len(ve))
 		for i, fe := range ve {
-			out[i] = ApiError{fe.Field(), msgForTag(fe)}
+			_field := fe.Field()
+			firstLetterToLowerCase := strings.ToLower(string(_field[0]))
+			out[i] = ApiError{firstLetterToLowerCase + _field[1:], msgForTag(fe)}
 		}
 		return gin.H{"erori": out}
 

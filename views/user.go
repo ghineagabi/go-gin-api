@@ -30,7 +30,11 @@ func insertAbstractUserHandler(ctx *gin.Context) {
 	var absUsr models.AbstractUser
 
 	if err := ctx.BindJSON(&absUsr); err != nil {
-		ctx.JSON(http.StatusBadRequest, err)
+		if valErr := errors.TranslateValidators(err); valErr != nil {
+			ctx.JSON(http.StatusBadRequest, valErr)
+			return
+		}
+		ctx.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -109,7 +113,12 @@ func updateAbstractUserHandler(ctx *gin.Context) {
 
 func loginUserHandler(ctx *gin.Context) {
 	var u utils.UserLoginFromHeader
+
 	if err := ctx.BindHeader(&u); err != nil {
+		if valErr := errors.TranslateValidators(err); valErr != nil {
+			ctx.JSON(http.StatusBadRequest, valErr)
+			return
+		}
 		ctx.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
@@ -152,8 +161,13 @@ func loginUserHandler(ctx *gin.Context) {
 // deletes the user from DB if credentials are matched
 func deleteUserHandler(ctx *gin.Context) {
 	var uc models.UserCredentials
-	if err := ctx.ShouldBind(&uc); err != nil {
-		ctx.JSON(http.StatusBadRequest, errors.RequiredEmailPass)
+
+	if err := ctx.BindJSON(&uc); err != nil {
+		if valErr := errors.TranslateValidators(err); valErr != nil {
+			ctx.JSON(http.StatusBadRequest, valErr)
+			return
+		}
+		ctx.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
 
