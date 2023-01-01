@@ -23,6 +23,7 @@ func AddUserRoutes(r *gin.RouterGroup) {
 	r.POST("/resetPassword", resetPasswordHandler)
 	r.POST("/verifyForgotPassword", verifyForgotPasswordHandler)
 	r.POST("/forgotPassword", forgotPasswordHandler)
+	r.POST("/verifyToken", verifyToken)
 
 }
 
@@ -278,6 +279,23 @@ func verifyForgotPasswordHandler(ctx *gin.Context) {
 	}
 	ctx.JSON(http.StatusAccepted, utils.SUCCESSFUL)
 
+}
+
+func verifyToken(ctx *gin.Context) {
+	verCode := ctx.Query("token")
+
+	utils.MutexVerification.RLock()
+	val, ok := utils.CodeToTTL[verCode]
+	utils.MutexVerification.RUnlock()
+
+	if !ok {
+		ctx.JSON(http.StatusUnauthorized, errors.InvalidToken)
+		return
+	} else if val.Expired() {
+		ctx.JSON(http.StatusGone, errors.ExpiredToken)
+		return
+	}
+	ctx.JSON(http.StatusOK, utils.SUCCESSFUL)
 }
 
 func logoutUserHandler(ctx *gin.Context) {
