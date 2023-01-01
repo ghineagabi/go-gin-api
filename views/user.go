@@ -21,8 +21,8 @@ func AddUserRoutes(r *gin.RouterGroup) {
 	r.POST("/logout", logoutUserHandler)
 
 	r.POST("/changePassword", changePasswordHandler)
-	r.POST("/resetPassword", sendResetEmailHandler)
-	r.POST("/sendResetEmail", resetPasswordHandler)
+	r.POST("/resetPassword", resetPasswordHandler)
+	r.POST("/sendResetEmail", sendResetEmailHandler)
 	r.POST("/verifyToken", verifyToken)
 
 }
