@@ -31,6 +31,10 @@ func TranslateValidators(e error) gin.H {
 
 func msgForTag(fe validator.FieldError) string {
 	switch fe.Tag() {
+	case "eqfield":
+		return IdenticalFields
+	case "nefield":
+		return DifferentFields
 	case "required":
 		return Required
 	case "email":
@@ -39,10 +43,6 @@ func msgForTag(fe validator.FieldError) string {
 		return PasswordFormat
 	case "spacetrim":
 		return Required
-	case "eqfield":
-		return IdenticalFields
-	case "nefield":
-		return DifferentFields
 	}
 
 	return fe.Error() // default error
