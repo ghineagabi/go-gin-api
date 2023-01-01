@@ -20,9 +20,9 @@ func AddUserRoutes(r *gin.RouterGroup) {
 	r.POST("/login", loginUserHandler)
 	r.POST("/logout", logoutUserHandler)
 
+	r.POST("/changePassword", changePasswordHandler)
+	r.POST("/sendResetEmail", sendResetEmailHandler)
 	r.POST("/resetPassword", resetPasswordHandler)
-	r.POST("/verifyForgotPassword", verifyForgotPasswordHandler)
-	r.POST("/forgotPassword", forgotPasswordHandler)
 	r.POST("/verifyToken", verifyToken)
 
 }
@@ -186,7 +186,7 @@ func deleteUserHandler(ctx *gin.Context) {
 	ctx.JSON(http.StatusAccepted, utils.SUCCESSFUL)
 }
 
-func resetPasswordHandler(ctx *gin.Context) {
+func changePasswordHandler(ctx *gin.Context) {
 	emailID, err := utils.VerifyWithCookie(ctx)
 	if err != nil {
 		return
@@ -210,7 +210,7 @@ func resetPasswordHandler(ctx *gin.Context) {
 
 }
 
-func forgotPasswordHandler(ctx *gin.Context) {
+func resetPasswordHandler(ctx *gin.Context) {
 	var GE utils.GeneralEmail
 	var emailID int
 
@@ -246,7 +246,7 @@ func forgotPasswordHandler(ctx *gin.Context) {
 	utils.MutexVerification.Unlock()
 }
 
-func verifyForgotPasswordHandler(ctx *gin.Context) {
+func sendResetEmailHandler(ctx *gin.Context) {
 
 	var FP models.ForgotPassword
 	if err := ctx.BindJSON(&FP); err != nil {

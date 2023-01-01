@@ -14,7 +14,7 @@ func AddPostRoutes(r *gin.RouterGroup) {
 	r.POST("/post", insertPostHandler)
 	r.GET("/post", getPostsHandler)
 	r.PATCH("/post", updatePostHandler)
-	r.DELETE("/post", deletePostHandler)
+	r.DELETE("/post/:ID", deletePostHandler)
 	r.POST("/post/like/:ID", likePostHandler)
 
 	r.GET("/postTitles", getPostTitlesHandler)
@@ -94,19 +94,19 @@ func updatePostHandler(ctx *gin.Context) {
 }
 
 func deletePostHandler(ctx *gin.Context) {
-	var post models.PostToUpdate
+	var _id utils.GeneralID
 
 	emailID, err := utils.VerifyWithCookie(ctx)
 	if err != nil {
 		return
 	}
 
-	if err = ctx.ShouldBind(&post); err != nil {
+	if err = ctx.BindUri(&_id); err != nil {
 		ctx.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
 
-	if status, err := controllers.DeletePost(&emailID, &post.Id); err != nil {
+	if status, err := controllers.DeletePost(&emailID, &_id.ID); err != nil {
 		ctx.JSON(status, err.Error())
 		return
 	}
