@@ -34,6 +34,7 @@ func ValidatePassword(s string) bool {
 			letters++
 		case unicode.IsPunct(c) || unicode.IsSymbol(c):
 			special = true
+			letters++
 		case c > unicode.MaxASCII || c == ' ':
 			return false
 		}

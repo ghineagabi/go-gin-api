@@ -22,7 +22,7 @@ func AddUserRoutes(r *gin.RouterGroup) {
 
 	r.POST("/changePassword", changePasswordHandler)
 	r.POST("/resetPassword", resetPasswordHandler)
-	r.POST("/sendResetEmail", sendResetEmailHandler)
+	r.POST("/sendResetEmail", sendResetEmail)
 	r.POST("/verifyToken", verifyToken)
 
 }
@@ -210,7 +210,7 @@ func changePasswordHandler(ctx *gin.Context) {
 
 }
 
-func resetPasswordHandler(ctx *gin.Context) {
+func sendResetEmail(ctx *gin.Context) {
 	var GE utils.GeneralEmail
 	var emailID int
 
@@ -246,7 +246,7 @@ func resetPasswordHandler(ctx *gin.Context) {
 	utils.MutexVerification.Unlock()
 }
 
-func sendResetEmailHandler(ctx *gin.Context) {
+func resetPasswordHandler(ctx *gin.Context) {
 
 	var FP models.ForgotPassword
 	if err := ctx.BindJSON(&FP); err != nil {
